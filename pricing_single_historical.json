@@ -1,0 +1,29 @@
+{
+    "ExtractionRequest": {
+        "@odata.type": "#ThomsonReuters.Dss.Api.Extractions.ExtractionRequests.SingleHistoricalPriceExtractionRequest",
+        "ContentFieldNames": [
+            "Close Price",
+            "Bid Price",
+            "Ask Price",
+            "Trade Date",
+            "CUSIP",
+            "RIC",
+            "Security Description",
+            "Alternate Close Price",
+            "Low Price",
+            "High Price",
+            "Mid Price",
+            "Open Price",
+            "Instrument ID"
+        ],
+        "IdentifierList": {
+            "@odata.type": "#ThomsonReuters.Dss.Api.Extractions.ExtractionRequests.InstrumentIdentifierList",
+            "InstrumentIdentifiers": [],
+            "ValidationOptions": null,
+            "UseUserPreferencesForValidationOptions": false
+        },
+        "Condition": {
+            "PriceDate": "2016-11-23T20:04:56.047Z"
+        }
+    }
+}
