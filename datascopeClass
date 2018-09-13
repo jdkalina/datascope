@@ -123,8 +123,8 @@ def dss_full_holdings(dsid, passw, identifier = "464287309", indentifier_type = 
 	return pd.DataFrame(json_response['Contents'])
 
 
-dss_full_holdings(dsid= '9009214', 
-				  passw = '3R7re5NW', 
-				  identifier = "464287309", 
-				  indentifier_type = "Cusip", 
-				  source = "LIP")
+dss_full_holdings(dsid= '', 
+		  passw = '', 
+		  identifier = "464287309", 
+		  indentifier_type = "Cusip", 
+		  source = "LIP")
