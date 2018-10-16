@@ -63,17 +63,12 @@ def dss_full_holdings(dsid, passw, identifier = "464287309", indentifier_type = 
 					"FundSERVIS",
 					"FundSERVLL",
 					"FundSERVNL",
-					"FundSERVVS"
+					"FundSERVVS",
+                 "User Defined Identifier"
 				],
 				"IdentifierList": {
 					"@odata.type": "#ThomsonReuters.Dss.Api.Extractions.ExtractionRequests.InstrumentIdentifierList",
-					"InstrumentIdentifiers": [
-						{
-							"Identifier": "123456789",
-							"IdentifierType": "Cusip",
-							"Source": "LIP"
-						}
-					],
+					"InstrumentIdentifiers": [],
 					"ValidationOptions": null,
 					"UseUserPreferencesForValidationOptions": false
 				},
@@ -97,8 +92,13 @@ def dss_full_holdings(dsid, passw, identifier = "464287309", indentifier_type = 
     extract_request_header['Authorization'] = 'Token ' + token
     
     instrumentList = pd.read_csv(filename,header = None)
+    ### This part needs more refining
     for v,i in instrumentList.iterrows():
-        print(instrumentList[v])
+        instType = instrumentList[0].loc[v]
+        instVal = instrumentList[1].loc[v]
+        dollarAmt = instrumentList[2].loc[v]
+        json_body["ExtractionRequest"]["IdentifierList"]["InstrumentIdentifiers"].append("IdentifierType":instType, "Identifier":instVal, "UserDefinedIdentifier":str(dollarAmt))
+        
     
     if fields != "Standard":
         json_body['ExtractionRequest']["ContentFieldNames"] = fields
