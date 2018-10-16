@@ -1,18 +1,23 @@
+import requests
+import json
+import pandas as pd
+import time
+
 def get_token(username,password, url = 'https://hosted.datascopeapi.reuters.com/RestApi/v1/Authentication/RequestToken'):
-	header= {}
-	header['Prefer']='respond-async'
-	header['Content-Type']='application/json; odata.metadata=minimal'
-	data={'Credentials':{
-		'Password':password,
-		'Username':username
-		}
-	}
-	response = requests.post(url, json=data, headers=header)
-	if response.status_code != 200:
-		print('HTML Code ' + str(response.status_code) + ', ending authorization process')       
-	else:
-			json_response = response.json()
-			return json_response["value"]
+    header= {}
+    header['Prefer']='respond-async'
+    header['Content-Type']='application/json; odata.metadata=minimal'
+    data={'Credentials':{
+            'Password':password,
+        'Username':username
+        }
+    }
+    response = requests.post(url, json=data, headers=header)
+    if response.status_code != 200:
+        print('HTML Code ' + str(response.status_code) + ', ending authorization process')       
+    else:
+        json_response = response.json()
+        return json_response["value"]
 
 def dss_full_holdings(dsid, passw, identifier = "464287309", indentifier_type = "Cusip", source = "LIP", single_asset = True, fields = 'Standard', filename='DSSInstrumentsForMutualFunds.csv'):
     """
@@ -23,14 +28,8 @@ def dss_full_holdings(dsid, passw, identifier = "464287309", indentifier_type = 
     :identifier: if single_asset is True (default), then you are electing to look up info on one individual asset. Best if just viewing the data.
     :indentifier_type: This defines what kind of instrument is defined in :identifier:. Most common are 'Cusip', 'Isin', 'Ric', or 'Sedol'.
     :source: Note, that the data in DSS is coming from our Lipper database and will require the source to be defined as 'LIP'. If you are using a Ric, this is a quote level 
-
+    :fields: If you'd like to explicitly define the fields you would like, enter them here in list form, i.e. ["Instrument ID", "RIC", "CUSIP"]. For a list of available fields, please refer to the Datascope Select Content Guide.
     """
-
-    import json
-    import requests
-    import pandas as pd
-    import time
-
     raw_json = """
         {
           "ExtractionRequest": {
@@ -97,7 +96,7 @@ def dss_full_holdings(dsid, passw, identifier = "464287309", indentifier_type = 
         instType = instrumentList[0].loc[v]
         instVal = instrumentList[1].loc[v]
         dollarAmt = instrumentList[2].loc[v]
-        json_body["ExtractionRequest"]["IdentifierList"]["InstrumentIdentifiers"].append("IdentifierType":instType, "Identifier":instVal, "UserDefinedIdentifier":str(dollarAmt))
+        json_body["ExtractionRequest"]["IdentifierList"]["InstrumentIdentifiers"].append({"IdentifierType":instType, "Identifier":instVal, "UserDefinedIdentifier":str(dollarAmt), "Source": source})
         
     
     if fields != "Standard":
@@ -131,8 +130,13 @@ def dss_full_holdings(dsid, passw, identifier = "464287309", indentifier_type = 
     json_response = response.json()
     return pd.DataFrame(json_response['Contents'])
 
-
-dss_full_holdings(dsid = '', 
-                  passw = '', 
+#myid and mypass I've defined in the console to hold credentials.
+df = dss_full_holdings(dsid = myid, 
+                  passw = mypass, 
                   fields = 'Standard', 
                   filename='DSSInstrumentsForMutualFunds.csv')
+
+df['UserDefinedIdentifier'] = pd.to_numeric(df['UserDefinedIdentifier'])
+df['Allocation Percentage']/100 * df['UserDefinedIdentifier']
+df[['RIC','Allocation Asset Type']]
+df.head()
