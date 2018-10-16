@@ -14,7 +14,18 @@ def get_token(username,password, url = 'https://hosted.datascopeapi.reuters.com/
 			json_response = response.json()
 			return json_response["value"]
 
-def dss_full_holdings(dsid, passw, identifier = "464287309", indentifier_type = "Cusip", source = "LIP", single_asset = True, fields = 'Standard'):
+def dss_full_holdings(dsid, passw, identifier = "464287309", indentifier_type = "Cusip", source = "LIP", single_asset = True, fields = 'Standard', filename='DSSInstruments.csv'):
+	"""
+	dss_full_holdings is intended to pull current holdings and weighting information for ETFs and Mutual Funds from the Datascope Select API.
+
+	:dsid: this is your Datascope Select user id that is provided to you when subscribing to a use and extract license with Refinitiv (Formerly Thomson Reuters)
+	:passw: the password for the id in dsid.
+	:identifier: if single_asset is True (default), then you are electing to look up info on one individual asset. Best if just viewing the data.
+	:indentifier_type: This defines what kind of instrument is defined in :identifier:. Most common are 'Cusip', 'Isin', 'Ric', or 'Sedol'.
+	:source: Note, that the data in DSS is coming from our Lipper database and will require the source to be defined as 'LIP'. If you are using a Ric, this is a quote level 
+
+	"""
+	
 	import json
 	import requests
 	import pandas as pd
@@ -75,9 +86,10 @@ def dss_full_holdings(dsid, passw, identifier = "464287309", indentifier_type = 
 			}
 		}
 		"""
+	
 	json_body = json.loads(raw_json)
 	extraction_url = 'https://hosted.datascopeapi.reuters.com/RestApi/v1/Extractions/ExtractWithNotes'
-	token = get_token(dsid,pw())
+	token = get_token(dsid,passw)
 
 	extract_request_header={}
 	extract_request_header['Prefer']='respond-async, wait=5'
@@ -88,7 +100,7 @@ def dss_full_holdings(dsid, passw, identifier = "464287309", indentifier_type = 
 	if single_asset:
 		ind_instrument_selection(json_body, identifier, indentifier_type, source)
 	else:
-		print('Pardon Our Dust! In progress!')
+		pd.read_csv(filename)
 
 	if fields != "Standard":
 		json_body['ExtractionRequest']["ContentFieldNames"] = fields
@@ -128,3 +140,5 @@ dss_full_holdings(dsid= '',
 		  identifier = "464287309", 
 		  indentifier_type = "Cusip", 
 		  source = "LIP")
+
+dss_full_holdings
