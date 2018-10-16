@@ -93,10 +93,7 @@ def dss_full_holdings(dsid, passw, identifier = "464287309", indentifier_type = 
     instrumentList = pd.read_csv(filename,header = None)
     ### This part needs more refining
     for v,i in instrumentList.iterrows():
-        instType = instrumentList[0].loc[v]
-        instVal = instrumentList[1].loc[v]
-        dollarAmt = instrumentList[2].loc[v]
-        json_body["ExtractionRequest"]["IdentifierList"]["InstrumentIdentifiers"].append({"IdentifierType":instType, "Identifier":instVal, "UserDefinedIdentifier":str(dollarAmt), "Source": source})
+        json_body["ExtractionRequest"]["IdentifierList"]["InstrumentIdentifiers"].append({"IdentifierType":instrumentList[0].loc[v], "Identifier":instrumentList[1].loc[v], "UserDefinedIdentifier":str(instrumentList[2].loc[v]), "Source": source})
         
     
     if fields != "Standard":
