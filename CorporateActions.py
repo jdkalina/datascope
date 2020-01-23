@@ -170,7 +170,3 @@ class DataScope:
                 
 
 
-dss = DataScope("9009214","3R7re5NW")
-#dss.preferences()
-fields = dss.get_fields('CorporateActions')
-
