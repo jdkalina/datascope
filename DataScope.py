@@ -9,7 +9,7 @@ class DataScope:
         self.name = name
         self.pw = pw
         self.authenticate()
-        
+
     def preferences(self):
         """
         definition from the REST API tree: User preferences determine formatting, time zones, FTP settings, extraction and other settings.
@@ -41,7 +41,7 @@ class DataScope:
 
         return pd.DataFrame(json.loads(requests.get(_url, headers = _header).content)['value'])
 
-        
+
     def authenticate(self):
         """
         Authenticates and returns a token valid for 24 hours to be paired in subsequent json headers to DSS servers. Takes the name and pw defined directly to the Datascope object.
@@ -64,33 +64,33 @@ class DataScope:
     def load_csv(self, filename, isTS = False, tsStart = None, tsEnd = None, validate = True, notesFile = ''):
         """
         This method loads instruments from a file similar to how its done within DSS from csv files. Column position 1 is used for Instrument Type, column position 2 is used for the instrument id.
-        
-        filename: file and path to the file you are loading. 
+
+        filename: file and path to the file you are loading.
         """
         _data = pd.read_csv(filename, header = None)
-    
-        _corrections = {"CSP":"Cusip","ISN":"Isin","RIC":"Ric","CHR":"ChainRic","SED":"Sedol"}    
-                
+
+        _corrections = {"CSP":"Cusip","ISN":"Isin","RIC":"Ric","CHR":"ChainRic","SED":"Sedol"}
+
         for k,v in _corrections.items():
             if sum(_data.iloc[:,0].isin([k])):
                 _data.iloc[:,0] = _data.iloc[:,0].str.replace(k, v)
-        
+
         self.start = tsStart
         self.end = tsEnd
         self.timeseries = isTS
         self.odataIns = "#ThomsonReuters.Dss.Api.Extractions.ExtractionRequests.InstrumentIdentifierList"
-        
+
         self.instruments = []
         for i,v in _data.iterrows():
             self.instruments.append({"Identifier": v[1],"IdentifierType": v[0]})
-        
+
         if self.timeseries:
             if tsStart == None:
                 print('For timeseries == True, please define a date in tsStart and tsEnd')
                 return
             else:
                 print('Note, timeseries will only work with Intraday and Price History templates')
-                
+
         if validate:
             _url = "https://hosted.datascopeapi.reuters.com/RestApi/v1/Extractions/InstrumentListValidateIdentifiers"
             _header={
@@ -105,18 +105,75 @@ class DataScope:
             _body["InputsForValidation"] = self.instruments
             _resp = requests.post(_url, headers = _header, json = _body)
             _resp = json.loads(_resp.content)
-            
+
             self.valid_inst = pd.DataFrame(_resp["ValidatedInstruments"])
-            
+
             for k,v in _resp['ValidationResult'].items():
                 print(k," - ",v)
             if notesFile == '':
                 print("No file path and name selected to write the results of the Validated Instruments")
             else:
                 self.valInst.to_csv(notesFile)
-    
+
+
+    def load_pd(self, dataframe, type_col, id_col, isTS = False, tsStart = None, tsEnd = None, validate = True, notesFile = ''):
+        """
+        This method loads instruments from a file similar to how its done within DSS from csv files. Column position 1 is used for Instrument Type, column position 2 is used for the instrument id.
+
+        dataframe: PANDAS dataframe with the instruments to load.
+        type_col: Character String indicating the name of the PANDAS DF column with the Instrument Types
+        id_col: Character String indicating the name of the PANDAS DF column with the Instrument Identifiers
+        """
+        _data = dataframe
+
+        _corrections = {"CSP":"Cusip","ISN":"Isin","RIC":"Ric","CHR":"ChainRic","SED":"Sedol"}
+
+        for k,v in _corrections.items():
+            if sum(_data.iloc[:,0].isin([k])):
+                _data.iloc[:,0] = _data.iloc[:,0].str.replace(k, v)
+
+        self.start = tsStart
+        self.end = tsEnd
+        self.timeseries = isTS
+        self.odataIns = "#ThomsonReuters.Dss.Api.Extractions.ExtractionRequests.InstrumentIdentifierList"
+
+        self.instruments = []
+        for i,v in _data.iterrows():
+            self.instruments.append({"Identifier": v[id_col],"IdentifierType": v[type_col]})
+
+        if self.timeseries:
+            if tsStart == None:
+                print('For timeseries == True, please define a date in tsStart and tsEnd')
+                return
+            else:
+                print('Note, timeseries will only work with Intraday and Price History templates')
+
+        if validate:
+            _url = "https://hosted.datascopeapi.reuters.com/RestApi/v1/Extractions/InstrumentListValidateIdentifiers"
+            _header={
+                "Prefer":"respond-async",
+                "Content-Type":"application/json",
+                "Authorization": "Token " + self.token
+            }
+            _body = {
+                "InputsForValidation": [],
+                "KeepDuplicates": "true"
+            }
+            _body["InputsForValidation"] = self.instruments
+            _resp = requests.post(_url, headers = _header, json = _body)
+            _resp = json.loads(_resp.content)
+
+            self.valid_inst = pd.DataFrame(_resp["ValidatedInstruments"])
+
+            for k,v in _resp['ValidationResult'].items():
+                print(k," - ",v)
+            if notesFile == '':
+                print("No file path and name selected to write the results of the Validated Instruments")
+            else:
+                self.valInst.to_csv(notesFile)
+
     def pricing(self, template, fields, today_only = False):
-        
+
         """This method provides access to standard pricing templates. Use the options in the template setting to select from available settings.
         :template:
                     options shown below:
@@ -175,7 +232,7 @@ class DataScope:
         self.requestUrl = 'https://hosted.datascopeapi.reuters.com/RestApi/v1/Extractions/ExtractWithNotes'
         self.requestBody = _body
         self.requestHeader = _header
-    
+
     def reference(self, template, fields):
         """This method provides access to standard reference templates. Use the options in the template setting to select from available settings.
         :template:
@@ -231,7 +288,7 @@ class DataScope:
         self.requestUrl = 'https://hosted.datascopeapi.reuters.com/RestApi/v1/Extractions/ExtractWithNotes'
         self.requestBody = _body
         self.requestHeader = _header
-        
+
     def export(self, file, note_file = ''):
         """
         :file: this is the filename and path for output file. Note, if the text is written ':memory:', then this function will return a tuple PANDAS dataframe (file, note_file) instead writing files to disk. Do the same with note_file.
