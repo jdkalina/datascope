@@ -41,6 +41,14 @@ class DataScope:
 
         return pd.DataFrame(json.loads(requests.get(_url, headers = _header).content)['value'])
 
+    def get_fields(self, template):
+        _url = "https://hosted.datascopeapi.reuters.com/RestApi/v1/Extractions/GetValidExtractionFieldNames(ReportTemplateType=ThomsonReuters.Dss.Api.Extractions.ReportTemplates.ReportTemplateTypes'CorporateActions')"
+        _header={
+            "Prefer":"respond-async",
+            "Authorization": "Token " + self.token
+        }
+
+        return json.loads(requests.get(_url, headers = _header).content)
 
     def authenticate(self):
         """
@@ -115,7 +123,6 @@ class DataScope:
             else:
                 self.valInst.to_csv(notesFile)
 
-
     def load_pd(self, dataframe, type_col, id_col, isTS = False, tsStart = None, tsEnd = None, validate = True, notesFile = ''):
         """
         This method loads instruments from a file similar to how its done within DSS from csv files. Column position 1 is used for Instrument Type, column position 2 is used for the instrument id.
@@ -184,6 +191,9 @@ class DataScope:
                             "hist":"PriceHistoryExtractionRequest"
         :fields: takes in a [list] of fields specific to the template you selected. Note, if you enter in non-existent fields or fields from the wrong template, you may throw a 400 error on the server.
         :today_only: an option that will return only todays prices for a report or a null value.
+
+
+        NOTES: add source as an input for pricing.
         """
 
         _tmChoices ={
@@ -288,6 +298,687 @@ class DataScope:
         self.requestUrl = 'https://hosted.datascopeapi.reuters.com/RestApi/v1/Extractions/ExtractWithNotes'
         self.requestBody = _body
         self.requestHeader = _header
+        
+    def corax_cap_change(self, rangeStart, rangeEnd, fields, CorporateActionsCapitalChangeType, IncludeNullDates = True, ExcludeDeletedEvents = True, IncludeInstrumentsWithNoEvents = True):
+        """
+        The three identifiers:
+            * Issue Level Event ID
+            * Offer ID
+            * Deal ID
+
+        rangeStart: character string input. This is the start date to query. Format is "YYYY-MM-DD" or in pythonic format: "%Y-%m-%d"
+        rangeEnd: character string input. Range end date, can be a future date. Format is "YYYY-MM-DD" or in pythonic format: "%Y-%m-%d"
+        fields: list of fields. character can be used for one value.
+        CorporateActionsCapitalChangeType: {"ann": "CapitalChangeAnnouncementDate",
+                                       "dld": "CapitalChangeDealDate",
+                                       "exd": "CapitalChangeExDate",
+                                       "eff": "EffectiveDate",
+                                       "rec": "RecordDate"}
+                                    definition:
+                                        Coverage includes Year to date and interim results, as well as As-reported and annualized figures. You can retrieve the data by Announcement Date and Period End Date.
+
+        IncludeNullDates: Defaults True. Takes boolean values. Only applies to 'All Historical Events' query.
+        ExcludeDeletedEvents: Defaults True. Takes boolean values. With this option, only currently valid records are included in the extraction.
+        IncludeInstrumentsWithNoEvents: Defaults True. Takes boolean values. Option to include instruments with no event data for all standard events.
+        """
+
+        def iftrue(obj):
+            if obj:
+                return "true"
+            else:
+                return "false"
+
+        _templates = {"ann": "CapitalChangeAnnouncementDate",
+                      "dld": "CapitalChangeDealDate",
+                      "exd": "CapitalChangeExDate",
+                      "eff": "EffectiveDate",
+                      "rec": "RecordDate"}
+
+        if not self.validate_template(CorporateActionsCapitalChangeType, _templates):
+            return
+
+        _headers={
+            "Prefer":"respond-async",
+            "Content-Type":"application/json",
+            "Authorization":"Token " + self.token
+        }
+
+        _body = {
+            "ExtractionRequest": {
+                "@odata.type": "#ThomsonReuters.Dss.Api.Extractions.ExtractionRequests.CorporateActionsStandardExtractionRequest",
+                "ContentFieldNames": ['RIC','Issue Level Event ID'],
+                "IdentifierList": {
+                    "@odata.type": self.odataIns,
+                    "InstrumentIdentifiers": []
+                },
+                "Condition": {
+                    "ReportDateRangeType": "Range",
+                    "QueryStartDate": rangeStart,
+                    "QueryEndDate": rangeEnd,
+                    "IncludeInstrumentsWithNoEvents": iftrue(IncludeInstrumentsWithNoEvents),
+                    "IncludeNullDates": iftrue(IncludeNullDates),
+                    "ExcludeDeletedEvents": iftrue(ExcludeDeletedEvents),
+                    "IncludeDividendEvents": "false",
+                    "CorporateActionsDividendsType": "DividendAnnouncementDate",
+                    "IncludeCapitalChangeEvents": "true",
+                    "IncludeEarningsEvents": "false",
+                    "IncludeMergersAndAcquisitionsEvents": "false",
+                    "IncludeNominalValueEvents": "false",
+                    "IncludePublicEquityOfferingsEvents": "false",
+                    "IncludeSharesOutstandingEvents": "false",
+                    "IncludeVotingRightsEvents": "false",
+                    "CorporateActionsCapitalChangeType": CorporateActionsCapitalChangeType,
+                    "CorporateActionsEarningsType": "PeriodEndDate",
+                }
+            }
+        }
+
+        if type(fields) is str:
+            fields = [fields]
+
+        if not self.validate_fields("CorporateActions",fields):
+            return
+
+        for i in fields:
+            _body['ExtractionRequest']['ContentFieldNames'].append(i)
+
+        _body['ExtractionRequest']['IdentifierList']['InstrumentIdentifiers'] = self.instruments
+
+        self.requestUrl = 'https://hosted.datascopeapi.reuters.com/RestApi/v1/Extractions/ExtractWithNotes'
+        self.requestBody = _body
+        self.requestHeader = _headers
+
+    def corax_earnings(self, rangeStart, rangeEnd, fields, CorporateActionsEarningsType):
+        """
+        The three identifiers:
+            * Issue Level Event ID
+            * Offer ID
+            * Deal ID
+
+        rangeStart: character string input. This is the start date to query. Format is "YYYY-MM-DD" or in pythonic format: "%Y-%m-%d"
+        rangeEnd: character string input. Range end date, can be a future date. Format is "YYYY-MM-DD" or in pythonic format: "%Y-%m-%d"
+        fields: list of fields. character can be used for one value.
+        CorporateActionsEarningsType: {"ead": "EarningsAnnouncementDate",
+                                        "ped":"PeriodEndDate"}
+                                    definition:
+                                        Coverage includes Year to date and interim results, as well as As-reported and annualized figures. You can retrieve the data by Announcement Date and Period End Date.
+
+        IncludeNullDates: Defaults True. Takes boolean values. Only applies to 'All Historical Events' query.
+        ExcludeDeletedEvents: Defaults True. Takes boolean values. With this option, only currently valid records are included in the extraction.
+        IncludeInstrumentsWithNoEvents: Defaults True. Takes boolean values. Option to include instruments with no event data for all standard events.
+        """
+
+        def iftrue(obj):
+            if obj:
+                return "true"
+            else:
+                return "false"
+
+        _templates = {"ead": "EarningsAnnouncementDate",
+                      "ped":"PeriodEndDate"}
+
+        _headers={
+            "Prefer":"respond-async",
+            "Content-Type":"application/json",
+            "Authorization":"Token " + self.token
+        }
+
+        _body = {
+            "ExtractionRequest": {
+                "@odata.type": "#ThomsonReuters.Dss.Api.Extractions.ExtractionRequests.CorporateActionsStandardExtractionRequest",
+                "ContentFieldNames": ['RIC','Issue Level Event ID'],
+                "IdentifierList": {
+                    "@odata.type": self.odataIns,
+                    "InstrumentIdentifiers": []
+                },
+                "Condition": {
+                    "ReportDateRangeType": "Range",
+                    "QueryStartDate": rangeStart,
+                    "QueryEndDate": rangeEnd,
+                    "IncludeInstrumentsWithNoEvents": iftrue(IncludeInstrumentsWithNoEvents),
+                    "IncludeNullDates": iftrue(IncludeNullDates),
+                    "ExcludeDeletedEvents": iftrue(ExcludeDeletedEvents),
+                    "IncludeDividendEvents": "false",
+                    "CorporateActionsDividendsType": "DividendAnnouncementDate",
+                    "IncludeCapitalChangeEvents": "false",
+                    "IncludeEarningsEvents": "true",
+                    "IncludeMergersAndAcquisitionsEvents": "false",
+                    "IncludeNominalValueEvents": "false",
+                    "IncludePublicEquityOfferingsEvents": "false",
+                    "IncludeSharesOutstandingEvents": "false",
+                    "IncludeVotingRightsEvents": "false",
+                    "CorporateActionsCapitalChangeType": "CapitalChangeExDate",
+                    "CorporateActionsEarningsType": CorporateActionsEarningsType,
+                }
+            }
+        }
+
+        if type(fields) is str:
+            fields = [fields]
+
+        if not self.validate_fields("CorporateActions",fields):
+            print('ERROR: Fields selected may not work with the selected template')
+            return
+
+        for i in fields:
+            _body['ExtractionRequest']['ContentFieldNames'].append(i)
+
+        _body['ExtractionRequest']['IdentifierList']['InstrumentIdentifiers'] = self.instruments
+
+        self.requestUrl = 'https://hosted.datascopeapi.reuters.com/RestApi/v1/Extractions/ExtractWithNotes'
+        self.requestBody = _body
+        self.requestHeader = _headers
+
+    def corax_nominal_value(self, rangeStart, rangeEnd, fields):
+        """
+        The three identifiers:
+            * Issue Level Event ID
+            * Offer ID
+            * Deal ID
+
+        rangeStart: character string input. This is the start date to query. Format is "YYYY-MM-DD" or in pythonic format: "%Y-%m-%d"
+        rangeEnd: character string input. Range end date, can be a future date. Format is "YYYY-MM-DD" or in pythonic format: "%Y-%m-%d"
+        fields: list of fields. character can be used for one value.
+        CorporateActionsEarningsType: {"ead": "EarningsAnnouncementDate",
+                                        "ped":"PeriodEndDate"}
+                                    definition:
+                                        Coverage includes Year to date and interim results, as well as As-reported and annualized figures. You can retrieve the data by Announcement Date and Period End Date.
+
+        IncludeNullDates: Defaults True. Takes boolean values. Only applies to 'All Historical Events' query.
+        ExcludeDeletedEvents: Defaults True. Takes boolean values. With this option, only currently valid records are included in the extraction.
+        IncludeInstrumentsWithNoEvents: Defaults True. Takes boolean values. Option to include instruments with no event data for all standard events.
+        """
+
+        def iftrue(obj):
+            if obj:
+                return "true"
+            else:
+                return "false"
+
+        _headers={
+            "Prefer":"respond-async",
+            "Content-Type":"application/json",
+            "Authorization":"Token " + self.token
+        }
+
+        _body = {
+            "ExtractionRequest": {
+                "@odata.type": "#ThomsonReuters.Dss.Api.Extractions.ExtractionRequests.CorporateActionsStandardExtractionRequest",
+                "ContentFieldNames": ['RIC','Issue Level Event ID'],
+                "IdentifierList": {
+                    "@odata.type": self.odataIns,
+                    "InstrumentIdentifiers": []
+                },
+                "Condition": {
+                    "ReportDateRangeType": "Range",
+                    "QueryStartDate": rangeStart,
+                    "QueryEndDate": rangeEnd,
+                    "IncludeInstrumentsWithNoEvents": iftrue(IncludeInstrumentsWithNoEvents),
+                    "IncludeNullDates": iftrue(IncludeNullDates),
+                    "ExcludeDeletedEvents": iftrue(ExcludeDeletedEvents),
+                    "IncludeDividendEvents": "false",
+                    "CorporateActionsDividendsType": "DividendAnnouncementDate",
+                    "IncludeCapitalChangeEvents": "false",
+                    "IncludeEarningsEvents": "false",
+                    "IncludeMergersAndAcquisitionsEvents": "false",
+                    "IncludeNominalValueEvents": "true",
+                    "IncludePublicEquityOfferingsEvents": "false",
+                    "IncludeSharesOutstandingEvents": "false",
+                    "IncludeVotingRightsEvents": "false",
+                    "CorporateActionsCapitalChangeType": "CapitalChangeExDate",
+                    "CorporateActionsEarningsType": "EarningsAnnouncementDate",
+                }
+            }
+        }
+
+        if type(fields) is str:
+            fields = [fields]
+
+        if not self.validate_fields("CorporateActions",fields):
+            print('ERROR: Fields selected may not work with the selected template')
+            return
+
+        for i in fields:
+            _body['ExtractionRequest']['ContentFieldNames'].append(i)
+
+        _body['ExtractionRequest']['IdentifierList']['InstrumentIdentifiers'] = self.instruments
+
+        self.requestUrl = 'https://hosted.datascopeapi.reuters.com/RestApi/v1/Extractions/ExtractWithNotes'
+        self.requestBody = _body
+        self.requestHeader = _headers
+
+    def corax_shares_outstanding(self, rangeStart, rangeEnd, fields, ShareAmountTypes, IncludeNullDates = True, ExcludeDeletedEvents = True, IncludeInstrumentsWithNoEvents = True):
+        """
+        The three identifiers:
+            * Issue Level Event ID
+            * Offer ID
+            * Deal ID
+
+        rangeStart: character string input. This is the start date to query. Format is "YYYY-MM-DD" or in pythonic format: "%Y-%m-%d"
+        rangeEnd: character string input. Range end date, can be a future date. Format is "YYYY-MM-DD" or in pythonic format: "%Y-%m-%d"
+        fields: list of fields. character can be used for one value.
+        ShareAmountTypes: either a character string value or a list.
+                    Acceptable inputs:
+                        ['Authorised','CloselyHeld','FreeFloat','Issued','Listed','Outstanding','Treasure','Unclassified']
+
+        CorporateActionsSharesType: Coverage includes the default share amount type and/or multiple types, including Outstanding, Issued, Listed, Closely Held, Treasury, Authorized and Unclassified. You can retrieve the number of shares by Shares Amount Date. Only one option = SharesAmountDate.
+        IncludeNullDates: Defaults True. Takes boolean values. Only applies to 'All Historical Events' query.
+        ExcludeDeletedEvents: Defaults True. Takes boolean values. With this option, only currently valid records are included in the extraction.
+        IncludeInstrumentsWithNoEvents: Defaults True. Takes boolean values. Option to include instruments with no event data for all standard events.
+        """
+        shareAmtTypes = ['Authorised','CloselyHeld','FreeFloat','Issued','Listed','Outstanding','Treasure','Unclassified']
+
+        for i in ShareAmountTypes:
+            if not i in shareAmtTypes:
+                print('Share Amount Type not properly selected')
+                return
+
+        def iftrue(obj):
+            if obj:
+                return "true"
+            else:
+                return "false"
+
+        _headers={
+            "Prefer":"respond-async",
+            "Content-Type":"application/json",
+            "Authorization":"Token " + self.token
+        }
+
+        _body = {
+            "ExtractionRequest": {
+                "@odata.type": "#ThomsonReuters.Dss.Api.Extractions.ExtractionRequests.CorporateActionsStandardExtractionRequest",
+                "ContentFieldNames": ['RIC','Issue Level Event ID'],
+                "IdentifierList": {
+                    "@odata.type": self.odataIns,
+                    "InstrumentIdentifiers": []
+                },
+                "Condition": {
+                    "ReportDateRangeType": "Range",
+                    "QueryStartDate": rangeStart,
+                    "QueryEndDate": rangeEnd,
+                    "IncludeInstrumentsWithNoEvents": iftrue(IncludeInstrumentsWithNoEvents),
+                    "IncludeNullDates": iftrue(IncludeNullDates),
+                    "ExcludeDeletedEvents": iftrue(ExcludeDeletedEvents),
+                    "IncludeDividendEvents": "false",
+                    "CorporateActionsDividendsType": "DividendAnnouncementDate",
+                    "IncludeCapitalChangeEvents": "false",
+                    "IncludeEarningsEvents": "false",
+                    "IncludeMergersAndAcquisitionsEvents": "false",
+                    "IncludeNominalValueEvents": "false",
+                    "IncludePublicEquityOfferingsEvents": "false",
+                    "IncludeSharesOutstandingEvents": "true",
+                    "IncludeVotingRightsEvents": "false",
+                    "CorporateActionsCapitalChangeType": "CapitalChangeExDate",
+                    "CorporateActionsEarningsType": "PeriodEndDate",
+                    "CorporateActionsSharesType": "SharesAmountDate",
+                    "ShareAmountTypes": []
+                }
+            }
+        }
+
+        if type(ShareAmountTypes) is str:
+            ShareAmountTypes = [ShareAmountTypes]
+
+        _body['ExtractionRequest']['Condition']['ShareAmountTypes'] = ShareAmountTypes
+
+        if type(fields) is str:
+            fields = [fields]
+
+        if not self.validate_fields("CorporateActions",fields):
+            return
+
+        for i in fields:
+            _body['ExtractionRequest']['ContentFieldNames'].append(i)
+
+        _body['ExtractionRequest']['IdentifierList']['InstrumentIdentifiers'] = self.instruments
+
+        self.requestUrl = 'https://hosted.datascopeapi.reuters.com/RestApi/v1/Extractions/ExtractWithNotes'
+        self.requestBody = _body
+        self.requestHeader = _headers
+
+    def corax_dividend(self, rangeStart, rangeEnd, fields, CorporateActionsDividendsType = "ann", IncludeNullDates = True, ExcludeDeletedEvents = True, IncludeInstrumentsWithNoEvents = True):
+        """
+        1. Exclude deleted events
+        2. Let's make these only range queries for now. Dates are easily manipulated in python.
+        3. query start  and end should have an if then statement for ':all:' that indicates all historical, future events.
+
+        The three identifiers:
+            * Issue Level Event ID
+            * Offer ID
+            * Deal ID
+
+        rangeStart: character string input. This is the start date to query. Format is "YYYY-MM-DD" or in pythonic format: "%Y-%m-%d"
+        rangeEnd: character string input. Range end date, can be a future date. Format is "YYYY-MM-DD" or in pythonic format: "%Y-%m-%d"
+        fields: list of fields. character can be used for one value.
+        CorporateActionsDividendsType: {"ann": "DividendAnnouncementDate",
+                                        "exd":"DividendExDate",
+                                        "pay":"DividendPayDate",
+                                        "rec":"DividendRecordDate",
+                                        "end":"PeriodEndDate"}
+                                    definition:
+                                        Coverage comprises Regular, Special and Extraordinary Distributions (including cash dividends, dividend reinvestments, dividends with stock options, capital gains payments as well as stock dividends) with relevant tax details, such as withholding tax, QDI, franked rates.
+
+        IncludeNullDates: Defaults True. Takes boolean values. Only applies to 'All Historical Events' query.
+        ExcludeDeletedEvents: Defaults True. Takes boolean values. With this option, only currently valid records are included in the extraction.
+        IncludeInstrumentsWithNoEvents: Defaults True. Takes boolean values. Option to include instruments with no event data for all standard events.
+        """
+
+        def iftrue(obj):
+            if obj:
+                return "true"
+            else:
+                return "false"
+
+        _templates = {"ann": "DividendAnnouncementDate",
+                      "exd":"DividendExDate",
+                      "pay":"DividendPayDate",
+                      "rec":"DividendRecordDate",
+                      "end":"PeriodEndDate"}
+
+        if not self.validate_template(CorporateActionsDividendsType, _templates):
+            return
+
+        _headers={
+            "Prefer":"respond-async",
+            "Content-Type":"application/json",
+            "Authorization":"Token " + self.token
+        }
+
+        _body = {
+            "ExtractionRequest": {
+                "@odata.type": "#ThomsonReuters.Dss.Api.Extractions.ExtractionRequests.CorporateActionsStandardExtractionRequest",
+                "ContentFieldNames": ['RIC','Issue Level Event ID'],
+                "IdentifierList": {
+                    "@odata.type": self.odataIns,
+                    "InstrumentIdentifiers": []
+                },
+                "Condition": {
+                    "ReportDateRangeType": "Range",
+                    "QueryStartDate": rangeStart,
+                    "QueryEndDate": rangeEnd,
+                    "IncludeInstrumentsWithNoEvents": iftrue(IncludeInstrumentsWithNoEvents),
+                    "IncludeNullDates": iftrue(IncludeNullDates),
+                    "ExcludeDeletedEvents": iftrue(ExcludeDeletedEvents),
+                    "IncludeDividendEvents": "true",
+                    "CorporateActionsDividendsType": _templates[CorporateActionsDividendsType],
+                    "IncludeCapitalChangeEvents": "false",
+                    "IncludeEarningsEvents": "false",
+                    "IncludeMergersAndAcquisitionsEvents": "false",
+                    "IncludeNominalValueEvents": "false",
+                    "IncludePublicEquityOfferingsEvents": "false",
+                    "IncludeSharesOutstandingEvents": "false",
+                    "IncludeVotingRightsEvents": "false",
+                    "CorporateActionsCapitalChangeType": "CapitalChangeExDate",
+                    "CorporateActionsEarningsType": "PeriodEndDate",
+                }
+            }
+        }
+
+        if type(fields) is str:
+            fields = [fields]
+
+        if not self.validate_fields("CorporateActions",fields):
+            return
+
+        for i in fields:
+            _body['ExtractionRequest']['ContentFieldNames'].append(i)
+
+        _body['ExtractionRequest']['IdentifierList']['InstrumentIdentifiers'] = self.instruments
+
+        self.requestUrl = 'https://hosted.datascopeapi.reuters.com/RestApi/v1/Extractions/ExtractWithNotes'
+        self.requestBody = _body
+        self.requestHeader = _headers
+
+    def corax_mna(self,rangeStart,rangeEnd, fields, CorporateActionsMergersAcquisitionsType, IncludeNullDates=True, ExcludeDeletedEvents=True,IncludeInstrumentsWithNoEvents=True):
+        """
+        rangeStart: character string input. This is the start date to query. Format is "YYYY-MM-DD" or in pythonic format: "%Y-%m-%d"
+        rangeEnd: character string input. Range end date, can be a future date. Format is "YYYY-MM-DD" or in pythonic format: "%Y-%m-%d"
+        fields: list of fields. character can be used for one value.
+        CorporateActionsMergersAcquisitionsType:   {"ann": "DealAnnouncementDate",
+                                                    "can":"DealCancelDate",
+                                                    "cls":"DealCloseDate",
+                                                    "eff":"DealEffectiveDate",
+                                                    "rev":"DealRevisedProposalDate",
+                                                    "exp":"TenderOfferExpirationDate"}
+                                    definition:
+                                        Coverage includes Year to date and interim results, as well as As-reported and annualized figures. You can retrieve the data by Announcement Date and Period End Date.
+
+        IncludeNullDates: Defaults True. Takes boolean values. Only applies to 'All Historical Events' query.
+        ExcludeDeletedEvents: Defaults True. Takes boolean values. With this option, only currently valid records are included in the extraction.
+        IncludeInstrumentsWithNoEvents: Defaults True. Takes boolean values. Option to include instruments with no event data for all standard events.
+        """
+
+        _templates = {"ann": "DealAnnouncementDate",
+                      "can":"DealCancelDate",
+                      "cls":"DealCloseDate",
+                      "eff":"DealEffectiveDate",
+                      "rev":"DealRevisedProposalDate",
+                      "exp":"TenderOfferExpirationDate"}
+
+        if not self.validate_template(CorporateActionsMergersAcquisitionsType, _templates):
+            return
+
+        def iftrue(obj):
+            if obj:
+                return "true"
+            else:
+                return "false"
+
+        _headers={
+            "Prefer":"respond-async",
+            "Content-Type":"application/json",
+            "Authorization":"Token " + self.token
+        }
+
+        _body = {
+            "ExtractionRequest": {
+                "@odata.type": "#ThomsonReuters.Dss.Api.Extractions.ExtractionRequests.CorporateActionsStandardExtractionRequest",
+                "ContentFieldNames": ['RIC',"Deal ID"],
+                "IdentifierList": {
+                    "@odata.type": self.odataIns,
+                    "InstrumentIdentifiers": []
+                },
+                "Condition": {
+                    "ReportDateRangeType": "Range",
+                    "QueryStartDate": rangeStart,
+                    "QueryEndDate": rangeEnd,
+                    "IncludeInstrumentsWithNoEvents": iftrue(IncludeInstrumentsWithNoEvents),
+                    "IncludeNullDates": iftrue(IncludeNullDates),
+                    "ExcludeDeletedEvents": iftrue(ExcludeDeletedEvents),
+                    "IncludeDividendEvents": "false",
+                    "CorporateActionsDividendsType": "DividendAnnouncementDate",
+                    "IncludeCapitalChangeEvents": "false",
+                    "IncludeEarningsEvents": "false",
+                    "IncludeMergersAndAcquisitionsEvents": "true",
+                    "IncludeNominalValueEvents": "false",
+                    "IncludePublicEquityOfferingsEvents": "false",
+                    "IncludeSharesOutstandingEvents": "false",
+                    "IncludeVotingRightsEvents": "false",
+                    "CorporateActionsCapitalChangeType": "CapitalChangeExDate",
+                    "CorporateActionsEarningsType": "EarningsAnnouncementDate",
+                    "CorporateActionsMergersAcquisitionsType":CorporateActionsMergersAcquisitionsType
+                }
+            }
+        }
+
+        if type(fields) is str:
+            fields = [fields]
+
+        if not self.validate_fields("CorporateActions",fields):
+            return
+
+        for i in fields:
+            _body['ExtractionRequest']['ContentFieldNames'].append(i)
+
+        _body['ExtractionRequest']['IdentifierList']['InstrumentIdentifiers'] = self.instruments
+
+        self.requestUrl = 'https://hosted.datascopeapi.reuters.com/RestApi/v1/Extractions/ExtractWithNotes'
+        self.requestBody = _body
+        self.requestHeader = _headers
+
+    def corax_peo(self, rangeStart, rangeEnd, fields, CorporateActionsEquityOfferingsType, IncludeNullDates = True, ExcludeDeletedEvents = True, IncludeInstrumentsWithNoEvents = True):
+        """
+        rangeStart: character string input. This is the start date to query. Format is "YYYY-MM-DD" or in pythonic format: "%Y-%m-%d"
+        rangeEnd: character string input. Range end date, can be a future date. Format is "YYYY-MM-DD" or in pythonic format: "%Y-%m-%d"
+        fields: list of fields. character can be used for one value.
+        CorporateActionsEquityOfferingsType:   {"all": "AllPendingDeals",
+                                                "1st": "FirstTradingDate"}
+                                    definition:
+                                        Coverage comprises IPO data. You can retrieve the data for All Pending Deals or by First Trading Date.
+
+        IncludeNullDates: Defaults True. Takes boolean values. Only applies to 'All Historical Events' query.
+        ExcludeDeletedEvents: Defaults True. Takes boolean values. With this option, only currently valid records are included in the extraction.
+        IncludeInstrumentsWithNoEvents: Defaults True. Takes boolean values. Option to include instruments with no event data for all standard events.
+        """
+
+        _templates = {"all": "AllPendingDeals",
+                      "1st": "FirstTradingDate"}
+
+        if not self.validate_template(CorporateActionsEquityOfferingsType, _templates):
+            return
+
+        def iftrue(obj):
+            if obj:
+                return "true"
+            else:
+                return "false"
+
+        _headers={
+            "Prefer":"respond-async",
+            "Content-Type":"application/json",
+            "Authorization":"Token " + self.token
+        }
+
+        _body = {
+            "ExtractionRequest": {
+                "@odata.type": "#ThomsonReuters.Dss.Api.Extractions.ExtractionRequests.CorporateActionsStandardExtractionRequest",
+                "ContentFieldNames": ['RIC',"Deal ID"],
+                "IdentifierList": {
+                    "@odata.type": self.odataIns,
+                    "InstrumentIdentifiers": []
+                },
+                "Condition": {
+                    "ReportDateRangeType": "Range",
+                    "QueryStartDate": rangeStart,
+                    "QueryEndDate": rangeEnd,
+                    "IncludeInstrumentsWithNoEvents": iftrue(IncludeInstrumentsWithNoEvents),
+                    "IncludeNullDates": iftrue(IncludeNullDates),
+                    "ExcludeDeletedEvents": iftrue(ExcludeDeletedEvents),
+                    "IncludeDividendEvents": "false",
+                    "CorporateActionsDividendsType": "DividendAnnouncementDate",
+                    "IncludeCapitalChangeEvents": "false",
+                    "IncludeEarningsEvents": "false",
+                    "IncludeMergersAndAcquisitionsEvents": "true",
+                    "IncludeNominalValueEvents": "false",
+                    "IncludePublicEquityOfferingsEvents": "false",
+                    "IncludeSharesOutstandingEvents": "false",
+                    "IncludeVotingRightsEvents": "false",
+                    "CorporateActionsCapitalChangeType": "CapitalChangeExDate",
+                    "CorporateActionsEarningsType": "EarningsAnnouncementDate",
+                    "CorporateActionsEquityOfferingsType":CorporateActionsEquityOfferingsType
+                }
+            }
+        }
+
+        if type(fields) is str:
+            fields = [fields]
+
+        if not self.validate_fields("CorporateActions",fields):
+            return
+
+        for i in fields:
+            _body['ExtractionRequest']['ContentFieldNames'].append(i)
+
+        _body['ExtractionRequest']['IdentifierList']['InstrumentIdentifiers'] = self.instruments
+
+        self.requestUrl = 'https://hosted.datascopeapi.reuters.com/RestApi/v1/Extractions/ExtractWithNotes'
+        self.requestBody = _body
+        self.requestHeader = _headers
+
+    def corax_voting_rights(self, rangeStart, rangeEnd, fields, IncludeNullDates = True, ExcludeDeletedEvents = True, IncludeInstrumentsWithNoEvents = True):
+        """
+        rangeStart: character string input. This is the start date to query. Format is "YYYY-MM-DD" or in pythonic format: "%Y-%m-%d"
+        rangeEnd: character string input. Range end date, can be a future date. Format is "YYYY-MM-DD" or in pythonic format: "%Y-%m-%d"
+        fields: list of fields. character can be used for one value.
+
+        IncludeNullDates: Defaults True. Takes boolean values. Only applies to 'All Historical Events' query.
+        ExcludeDeletedEvents: Defaults True. Takes boolean values. With this option, only currently valid records are included in the extraction.
+        IncludeInstrumentsWithNoEvents: Defaults True. Takes boolean values. Option to include instruments with no event data for all standard events.
+        """
+
+        def iftrue(obj):
+            if obj:
+                return "true"
+            else:
+                return "false"
+
+        _headers={
+            "Prefer":"respond-async",
+            "Content-Type":"application/json",
+            "Authorization":"Token " + self.token
+        }
+
+        _body = {
+            "ExtractionRequest": {
+                "@odata.type": "#ThomsonReuters.Dss.Api.Extractions.ExtractionRequests.CorporateActionsStandardExtractionRequest",
+                "ContentFieldNames": ['RIC',"Deal ID"],
+                "IdentifierList": {
+                    "@odata.type": self.odataIns,
+                    "InstrumentIdentifiers": []
+                },
+                "Condition": {
+                    "ReportDateRangeType": "Range",
+                    "QueryStartDate": rangeStart,
+                    "QueryEndDate": rangeEnd,
+                    "IncludeInstrumentsWithNoEvents": iftrue(IncludeInstrumentsWithNoEvents),
+                    "IncludeNullDates": iftrue(IncludeNullDates),
+                    "ExcludeDeletedEvents": iftrue(ExcludeDeletedEvents),
+                    "IncludeDividendEvents": "false",
+                    "CorporateActionsDividendsType": "DividendAnnouncementDate",
+                    "IncludeCapitalChangeEvents": "false",
+                    "IncludeEarningsEvents": "false",
+                    "IncludeMergersAndAcquisitionsEvents": "true",
+                    "IncludeNominalValueEvents": "false",
+                    "IncludePublicEquityOfferingsEvents": "false",
+                    "IncludeSharesOutstandingEvents": "false",
+                    "IncludeVotingRightsEvents": "false",
+                    "CorporateActionsCapitalChangeType": "CapitalChangeExDate",
+                    "CorporateActionsEarningsType": "EarningsAnnouncementDate",
+                    "CorporateActionsVotingRightsType": "VotingRightsDate"
+                }
+            }
+        }
+
+        if type(fields) is str:
+            fields = [fields]
+
+        if not self.validate_fields("CorporateActions",fields):
+            return
+
+        for i in fields:
+            _body['ExtractionRequest']['ContentFieldNames'].append(i)
+
+        _body['ExtractionRequest']['IdentifierList']['InstrumentIdentifiers'] = self.instruments
+
+        self.requestUrl = 'https://hosted.datascopeapi.reuters.com/RestApi/v1/Extractions/ExtractWithNotes'
+        self.requestBody = _body
+        self.requestHeader = _headers
+
+    def validate_fields(self, template, fields):
+        _chkFields = dss.get_fields(template)
+        if type(fields) is str:
+            fields = [fields]
+        for i in fields:
+            if not i in _chkFields:
+                print('ERROR: Check field selection, your fields are not available for ',template)
+                return False
+                break
+
+    def validate_template(self, var, templates):
+        if not var in templates:
+            print("ERROR: Issue with the template selected, review and retry")
+            return False
 
     def export(self, file, note_file = ''):
         """
