@@ -75,7 +75,15 @@ class DataScope:
 
         filename: file and path to the file you are loading.
         """
-        _data = pd.read_csv(filename, header = None)
+        
+        instrument_list = []
+        with open(filename, 'r') as file:
+            for line in file:
+                row = line.split(',')
+                row[-1] = row[-1].replace('\n','')
+                instrument_list.append(row)
+                
+        _data = pd.DataFrame(instrument_list)
 
         _corrections = {"CSP":"Cusip","ISN":"Isin","RIC":"Ric","CHR":"ChainRic","SED":"Sedol"}
 
