@@ -129,7 +129,10 @@ class session:
             _resp = requests.post(_url, headers = _header, json = _body)
             _resp = json.loads(_resp.content)
 
-            self.valid_inst = pd.DataFrame(_resp["ValidatedInstruments"])
+            try:
+                self.valid_inst = pd.DataFrame(_resp["ValidatedInstruments"])
+            except:
+                print(_resp)
 
             for k,v in _resp['ValidationResult'].items():
                 if k == 'StandardSegments':
@@ -145,7 +148,7 @@ class session:
                         print(k," - ",v,'\n')
 
 
-    def load_pd(self, dataframe, type_col, id_col, isTS = False, tsStart = None, tsEnd = None, validate = True, notesFile = ''):
+    def load_pd(self, dataframe, type_col, id_col, isTS = False, tsStart = None, tsEnd = None, validate = True):
         """
         This method loads instruments from a file similar to how its done within DSS from csv files. Column position 1 is used for Instrument Type, column position 2 is used for the instrument id.
         dataframe: PANDAS dataframe with the instruments to load.
@@ -167,7 +170,14 @@ class session:
 
         self.instruments = []
         for i,v in _data.iterrows():
-            self.instruments.append({"Identifier": v[id_col],"IdentifierType": v[type_col]})
+            if len(_data.columns) == 2:
+                self.instruments.append({"Identifier": v[1],"IdentifierType": v[0]})
+            else:
+                if v[3] is not None:
+                    self.instruments.append({"Identifier": v[1],"IdentifierType": v[0], "Source":v[3]})
+                else:
+                    self.instruments.append({"Identifier": v[1],"IdentifierType": v[0]})
+
 
         if self.timeseries:
             if tsStart is None:
@@ -191,14 +201,24 @@ class session:
             _resp = requests.post(_url, headers = _header, json = _body)
             _resp = json.loads(_resp.content)
 
-            self.valid_inst = pd.DataFrame(_resp["ValidatedInstruments"])
+            try:
+                self.valid_inst = pd.DataFrame(_resp["ValidatedInstruments"])
+            except:
+                print(_resp)
 
             for k,v in _resp['ValidationResult'].items():
-                print(k," - ",v)
-            if notesFile == '':
-                print("No file path and name selected to write the results of the Validated Instruments")
-            else:
-                self.valInst.to_csv(notesFile)
+                if k == 'StandardSegments':
+                    print(k)
+                    print(pd.DataFrame(v),'\n\n')
+                else:
+                    if type(v) is list:
+                        print(k)
+                        for i in v:
+                            print(i)
+                        print('\n')
+                    else:
+                        print(k," - ",v,'\n')
+
 
     def composite(self, fields, today_only = False):
 
@@ -223,15 +243,10 @@ class session:
                 "IdentifierList": {
                     "@odata.type": self.odataIns,
                     "InstrumentIdentifiers": []
-                },
-                "Condition": "null"
+                }
             }
         }
 
-        if today_only:
-            _body["ExtractionRequest"]["Condition"] = {"LimitReportToTodaysData": "true"}
-        else:
-            _body["ExtractionRequest"]["Condition"] = {"LimitReportToTodaysData": "false"}
 
         for i in fields:
             _body["ExtractionRequest"]["ContentFieldNames"].append(i)
