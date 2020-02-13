@@ -9,6 +9,11 @@ class session:
         self.name = name
         self.pw = pw
         self.authenticate()
+        self.validation_options = {
+            "AllowHistoricalInstruments": "true",
+            "AllowInactiveInstruments": "true",
+            "AllowOpenAccessInstruments": "true"
+            }
 
     def preferences(self):
         """
@@ -148,7 +153,7 @@ class session:
                         print(k," - ",v,'\n')
 
 
-    def load_pd(self, dataframe, type_col, id_col, isTS = False, tsStart = None, tsEnd = None, validate = True):
+    def load_pd(self, dataframe, type_col = 'default', id_col = 'default', isTS = False, tsStart = None, tsEnd = None, validate = True):
         """
         This method loads instruments from a file similar to how its done within DSS from csv files. Column position 1 is used for Instrument Type, column position 2 is used for the instrument id.
         dataframe: PANDAS dataframe with the instruments to load.
@@ -156,6 +161,17 @@ class session:
         id_col: Character String indicating the name of the PANDAS DF column with the Instrument Identifiers
         """
         _data = dataframe
+        
+        if not type_col in _data.columns:
+            print('ERROR: type_col not in dataframe')
+            return
+        if not id_col in _data.columns:
+            print('ERROR: id_col not in dataframe')
+            return
+        if type_col == 'default':
+            type_col = 0
+        if id_col == 'default':
+            id_col =1
 
         _corrections = {"CSP":"Cusip","ISN":"Isin","RIC":"Ric","CHR":"ChainRic","SED":"Sedol"}
 
@@ -171,7 +187,7 @@ class session:
         self.instruments = []
         for i,v in _data.iterrows():
             if len(_data.columns) == 2:
-                self.instruments.append({"Identifier": v[1],"IdentifierType": v[0]})
+                self.instruments.append({"Identifier": v[id_col],"IdentifierType": v[type_col]})
             else:
                 if v[3] is not None:
                     self.instruments.append({"Identifier": v[1],"IdentifierType": v[0], "Source":v[3]})
@@ -220,7 +236,7 @@ class session:
                         print(k," - ",v,'\n')
 
 
-    def composite(self, fields, today_only = False):
+    def composite(self, fields):
 
         """This method provides access to the composite template. Use the options in the template setting to select from available settings.
         :fields: takes in a [list] of fields specific to the template you selected. Note, if you enter in non-existent fields or fields from the wrong template, you may throw a 400 error on the server.
@@ -242,10 +258,11 @@ class session:
                 "ContentFieldNames": [],
                 "IdentifierList": {
                     "@odata.type": self.odataIns,
-                    "InstrumentIdentifiers": []
+                    "InstrumentIdentifiers": [],
+                    "ValidationOptions": self.validation_options
+                    }
                 }
             }
-        }
 
 
         for i in fields:
@@ -261,10 +278,8 @@ class session:
         :template:
                     options shown below:
                             "eod":"EndOfDayPricingExtractionRequest",
-                            "intraday":"IntradayPricingExtractionRequest",
                             "peod":"PremiumEndOfDayPricingExtractionRequest",
-                            "prem":"PremiumPricingExtractionRequest",
-                            "hist":"PriceHistoryExtractionRequest"
+                            "prem":"PremiumPricingExtractionRequest"
         :fields: takes in a [list] of fields specific to the template you selected. Note, if you enter in non-existent fields or fields from the wrong template, you may throw a 400 error on the server.
         :today_only: an option that will return only todays prices for a report or a null value.
         NOTES: add source as an input for pricing.
@@ -272,9 +287,62 @@ class session:
 
         _tmChoices ={
             "eod":"EndOfDayPricingExtractionRequest",
-            "intraday":"IntradayPricingExtractionRequest",
             "peod":"PremiumEndOfDayPricingExtractionRequest",
-            "prem":"PremiumPricingExtractionRequest",
+            "prem":"PremiumPricingExtractionRequest"
+        }
+
+        if not template in _tmChoices:
+            print('Error, your template selection looks invalid')
+            return
+
+        _odata = "#ThomsonReuters.Dss.Api.Extractions.ExtractionRequests." + _tmChoices[template]
+
+        _header={
+            "Prefer":"respond-async",
+            "Content-Type":"application/json",
+            "Authorization": "Token " + self.token
+        }
+
+        _body={
+            "ExtractionRequest": {
+                "@odata.type": _odata,
+                "ContentFieldNames": [],
+                "IdentifierList": {
+                    "@odata.type": self.odataIns,
+                    "InstrumentIdentifiers": [],
+                    "ValidationOptions": self.validation_options
+                    },
+                "Condition": "null"
+                }
+            }
+
+        if today_only:
+            _body["ExtractionRequest"]["Condition"] = {"LimitReportToTodaysData": "true"}
+        else:
+            _body["ExtractionRequest"]["Condition"] = {"LimitReportToTodaysData": "false"}
+
+        for i in fields:
+            _body["ExtractionRequest"]["ContentFieldNames"].append(i)
+        _body["ExtractionRequest"]["IdentifierList"]["InstrumentIdentifiers"] = self.instruments
+        self.requestUrl = 'https://hosted.datascopeapi.reuters.com/RestApi/v1/Extractions/ExtractWithNotes'
+        self.requestBody = _body
+        self.requestHeader = _header
+        
+    def timeseries_pricing(self, template, fields):
+
+        """This method provides access to standard pricing templates. Use the options in the template setting to select from available settings.
+        :template:
+                    options shown below:
+                            "intraday":"IntradayPricingExtractionRequest",
+                            "hist":"PriceHistoryExtractionRequest"
+        
+        :fields: takes in a [list] of fields specific to the template you selected. Note, if you enter in non-existent fields or fields from the wrong template, you may throw a 400 error on the server.
+        :today_only: an option that will return only todays prices for a report or a null value.
+        NOTES: add source as an input for pricing.
+        """
+
+        _tmChoices ={
+            "intraday":"IntradayPricingExtractionRequest",
             "hist":"PriceHistoryExtractionRequest"
         }
 
@@ -296,19 +364,19 @@ class session:
                 "ContentFieldNames": [],
                 "IdentifierList": {
                     "@odata.type": self.odataIns,
-                    "InstrumentIdentifiers": []
-                },
-                "Condition": "null"
+                    "InstrumentIdentifiers": [],
+                    "ValidationOptions": self.validation_options
+                    },
+                    "Condition": "null"
+                }
             }
-        }
 
         if self.timeseries:
             _body["ExtractionRequest"]["Condition"] = {"ReportDateRangeType": "Range","QueryStartDate": self.start,"QueryEndDate": self.end}
         else:
-            if today_only:
-                _body["ExtractionRequest"]["Condition"] = {"LimitReportToTodaysData": "true"}
-            else:
-                _body["ExtractionRequest"]["Condition"] = {"LimitReportToTodaysData": "false"}
+            print('ERROR: under load_ isTs needs to be True and dates defined')
+            return
+
 
         for i in fields:
             _body["ExtractionRequest"]["ContentFieldNames"].append(i)
@@ -361,7 +429,8 @@ class session:
                 "ContentFieldNames": [],
                 "IdentifierList": {
                     "@odata.type": self.odataIns,
-                    "InstrumentIdentifiers": []
+                    "InstrumentIdentifiers": [],
+                    "ValidationOptions": self.validation_options
                 },
             }
         }
@@ -421,7 +490,8 @@ class session:
                 "ContentFieldNames": ['RIC','Issue Level Event ID'],
                 "IdentifierList": {
                     "@odata.type": self.odataIns,
-                    "InstrumentIdentifiers": []
+                    "InstrumentIdentifiers": [],
+                    "ValidationOptions": self.validation_options
                 },
                 "Condition": {
                     "ReportDateRangeType": "Range",
@@ -499,7 +569,8 @@ class session:
                 "ContentFieldNames": ['RIC','Issue Level Event ID'],
                 "IdentifierList": {
                     "@odata.type": self.odataIns,
-                    "InstrumentIdentifiers": []
+                    "InstrumentIdentifiers": [],
+                    "ValidationOptions": self.validation_options
                 },
                 "Condition": {
                     "ReportDateRangeType": "Range",
@@ -575,7 +646,8 @@ class session:
                 "ContentFieldNames": ['RIC','Issue Level Event ID'],
                 "IdentifierList": {
                     "@odata.type": self.odataIns,
-                    "InstrumentIdentifiers": []
+                    "InstrumentIdentifiers": [],
+                    "ValidationOptions": self.validation_options
                 },
                 "Condition": {
                     "ReportDateRangeType": "Range",
@@ -657,7 +729,8 @@ class session:
                 "ContentFieldNames": ['RIC','Issue Level Event ID'],
                 "IdentifierList": {
                     "@odata.type": self.odataIns,
-                    "InstrumentIdentifiers": []
+                    "InstrumentIdentifiers": [],
+                    "ValidationOptions": self.validation_options
                 },
                 "Condition": {
                     "ReportDateRangeType": "Range",
@@ -754,7 +827,8 @@ class session:
                 "ContentFieldNames": ['RIC','Issue Level Event ID'],
                 "IdentifierList": {
                     "@odata.type": self.odataIns,
-                    "InstrumentIdentifiers": []
+                    "InstrumentIdentifiers": [],
+                    "ValidationOptions": self.validation_options
                 },
                 "Condition": {
                     "ReportDateRangeType": "Range",
@@ -839,7 +913,8 @@ class session:
                 "ContentFieldNames": ['RIC',"Deal ID"],
                 "IdentifierList": {
                     "@odata.type": self.odataIns,
-                    "InstrumentIdentifiers": []
+                    "InstrumentIdentifiers": [],
+                    "ValidationOptions": self.validation_options
                 },
                 "Condition": {
                     "ReportDateRangeType": "Range",
@@ -917,7 +992,8 @@ class session:
                 "ContentFieldNames": ['RIC',"Deal ID"],
                 "IdentifierList": {
                     "@odata.type": self.odataIns,
-                    "InstrumentIdentifiers": []
+                    "InstrumentIdentifiers": [],
+                    "ValidationOptions": self.validation_options
                 },
                 "Condition": {
                     "ReportDateRangeType": "Range",
@@ -985,7 +1061,8 @@ class session:
                 "ContentFieldNames": ['RIC',"Deal ID"],
                 "IdentifierList": {
                     "@odata.type": self.odataIns,
-                    "InstrumentIdentifiers": []
+                    "InstrumentIdentifiers": [],
+                    "ValidationOptions": self.validation_options
                 },
                 "Condition": {
                     "ReportDateRangeType": "Range",
@@ -1024,6 +1101,11 @@ class session:
         self.requestUrl = 'https://hosted.datascopeapi.reuters.com/RestApi/v1/Extractions/ExtractWithNotes'
         self.requestBody = _body
         self.requestHeader = _headers
+
+    def set_validation_options(self, settings):
+        """settings= the dictionary with json settings to be set in the "ValidationOptions portion for dss"
+        """
+        self.validation_options = json
 
     def validate_fields(self, template, fields):
         _chkFields = self.get_fields(template)
