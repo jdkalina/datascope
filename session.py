@@ -153,8 +153,10 @@ class session:
                         print(k," - ",v,'\n')
 
 
-    def load_pd(self, dataframe, type_col = 'default', id_col = 'default', isTS = False, tsStart = None, tsEnd = None, validate = True):
+    def load_pd(self, dataframe, isTS = False, tsStart = None, tsEnd = None, validate = True):
         """
+	note, dataframes read in positionally. Look for this to be more dynamic in later releases. Column 0 is IdentifierType, 1 is Identifier, 2 is optional as Source. 
+	
         This method loads instruments from a file similar to how its done within DSS from csv files. Column position 1 is used for Instrument Type, column position 2 is used for the instrument id.
         dataframe: PANDAS dataframe with the instruments to load.
         type_col: Character String indicating the name of the PANDAS DF column with the Instrument Types
@@ -187,10 +189,10 @@ class session:
         self.instruments = []
         for i,v in _data.iterrows():
             if len(_data.columns) == 2:
-                self.instruments.append({"Identifier": v[id_col],"IdentifierType": v[type_col]})
+                self.instruments.append({"Identifier": v[1],"IdentifierType": v[0]})
             else:
                 if v[3] is not None:
-                    self.instruments.append({"Identifier": v[1],"IdentifierType": v[0], "Source":v[3]})
+                    self.instruments.append({"Identifier": v[1],"IdentifierType": v[0], "Source":v[2]})
                 else:
                     self.instruments.append({"Identifier": v[1],"IdentifierType": v[0]})
 
