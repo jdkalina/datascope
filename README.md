@@ -7,6 +7,7 @@ The module works in the following manner:
 First step, intialize a Datascope instance like shown below:
 
 import datascope
+
 dss = datascope.session('id','pw')
 
 This will authenticate your credentials and store a 24 hour Token that will be paired with all further requests. 
