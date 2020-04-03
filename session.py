@@ -13,7 +13,7 @@ class session:
             "AllowHistoricalInstruments": "true",
             "AllowInactiveInstruments": "true",
             "AllowOpenAccessInstruments": "true"
-            }
+        }
 
     def preferences(self):
         """
@@ -25,7 +25,7 @@ class session:
         _url = "https://hosted.datascopeapi.reuters.com/RestApi/v1/Users/Users(" + self.name + ")/Preferences"
 
         _header={
-            "Prefer":"respond-async",   
+            "Prefer":"respond-async",
             "Authorization": "Token " + self.token
         }
 
@@ -93,7 +93,7 @@ class session:
                     else:
                         _instruments.append({"Identifier": v[1],"IdentifierType": v[0]})
             return _instruments
-    
+
         _data = dataframe
 
         if type_col == 'default':
@@ -166,14 +166,14 @@ class session:
                     else:
                         _instruments.append({"Identifier": v[1],"IdentifierType": v[0]})
             return _instruments
-        
+
         instrument_list = []
         with open(filename, 'r') as file:
             for line in file:
                 row = line.split(',')
                 row[-1] = row[-1].replace('\n','')
                 instrument_list.append(row)
-                
+
         _data = pd.DataFrame(instrument_list)
 
         _corrections = {"CSP":"Cusip","ISN":"Isin","RIC":"Ric","CHR":"ChainRic","SED":"Sedol","CIN":"Cin"}
@@ -250,9 +250,9 @@ class session:
                     "@odata.type": self.odataIns,
                     "InstrumentIdentifiers": [],
                     "ValidationOptions": self.validation_options
-                    }
                 }
             }
+        }
 
 
         for i in fields:
@@ -301,10 +301,10 @@ class session:
                     "@odata.type": self.odataIns,
                     "InstrumentIdentifiers": [],
                     "ValidationOptions": self.validation_options
-                    },
+                },
                 "Condition": "null"
-                }
             }
+        }
 
         if today_only:
             _body["ExtractionRequest"]["Condition"] = {"LimitReportToTodaysData": "true"}
@@ -317,11 +317,11 @@ class session:
         self.requestUrl = 'https://hosted.datascopeapi.reuters.com/RestApi/v1/Extractions/ExtractWithNotes'
         self.requestBody = _body
         self.requestHeader = _header
-        
+
     def price_history(self, fields, rangeStart, rangeEnd):
 
         """This method provides access to standard pricing templates. Use the options in the template setting to select from available settings.
-       
+
         :fields: takes in a [list] of fields specific to the template you selected. Note, if you enter in non-existent fields or fields from the wrong template, you may throw a 400 error on the server.
         """
 
@@ -338,10 +338,10 @@ class session:
                 "IdentifierList": {
                     "@odata.type": self.odataIns,
                     "InstrumentIdentifiers": []
-				},
-				"Condition": "null"
-			}
-		}
+                },
+                "Condition": "null"
+            }
+        }
 
         _body["ExtractionRequest"]["Condition"] = {"QueryStartDate": rangeStart,"QueryEndDate": rangeEnd}
 
@@ -355,7 +355,7 @@ class session:
     def price_intraday(self, fields):
 
         """This method provides access to the intraday pricing template. Use the options in the template setting to select from available settings.
-       
+
         :fields: takes in a [list] of fields specific to the template you selected. Note, if you enter in non-existent fields or fields from the wrong template, you may throw a 400 error on the server.
         """
 
@@ -372,9 +372,9 @@ class session:
                 "IdentifierList": {
                     "@odata.type": self.odataIns,
                     "InstrumentIdentifiers": []
-				}
-			}
-		}
+                }
+            }
+        }
 
         for i in fields:
             _body["ExtractionRequest"]["ContentFieldNames"].append(i)
@@ -388,7 +388,6 @@ class session:
         :template:
                     options shown below:
                             "tnc": "TermsAndConditionsExtractionRequest",
-                            "bs": "BondScheduleExtractionRequest"
                             "rg":"RatingsExtractionRequest",
                             "mbf":"MBSFactorHistoryExtractionRequest",
                             "trf":"TrancheFactorHistoryExtractionRequest",
@@ -439,7 +438,44 @@ class session:
         self.requestUrl = 'https://hosted.datascopeapi.reuters.com/RestApi/v1/Extractions/ExtractWithNotes'
         self.requestBody = _body
         self.requestHeader = _header
-        
+
+    def ref_bond_schedule(self, bond_schedule_type, fields):
+        """This method provides access to standard reference templates. Use the options in the template setting to select from available settings.
+        :fields: takes in a [list] of fields specific to the template you selected. Note, if you enter in non-existent fields or fields from the wrong template, you may throw a 400 error on the server.
+        :bond_schedule_type: If you are leveraging the bond_schedule templates, you'll need to use the get_bond_sched_types method to get the bond types. Example is 'CALL' for Call schedule.
+        """
+
+        _odata = "#ThomsonReuters.Dss.Api.Extractions.ExtractionRequests.BondScheduleExtractionRequest"
+
+        _header={
+            "Prefer":"respond-async",
+            "Content-Type":"application/json",
+            "Authorization": "Token " + self.token
+        }
+
+        _body={
+            "ExtractionRequest": {
+                "@odata.type": _odata,
+                "ContentFieldNames": [],
+                "IdentifierList": {
+                    "@odata.type": self.odataIns,
+                    "InstrumentIdentifiers": [],
+                    "ValidationOptions": self.validation_options
+                },
+                "Condition":
+                    {
+                        "BondScheduleTypeCodes": [bond_schedule_type]
+                    }
+            }
+        }
+
+        for i in fields:
+            _body["ExtractionRequest"]["ContentFieldNames"].append(i)
+        _body["ExtractionRequest"]["IdentifierList"]["InstrumentIdentifiers"] = self.instruments
+        self.requestUrl = 'https://hosted.datascopeapi.reuters.com/RestApi/v1/Extractions/ExtractWithNotes'
+        self.requestBody = _body
+        self.requestHeader = _header
+
     def corax_cap_change(self, rangeStart, rangeEnd, fields, CorporateActionsCapitalChangeType = "ann", IncludeNullDates = True, ExcludeDeletedEvents = True, IncludeInstrumentsWithNoEvents = False):
         """
         Two identifiers included in return object:
@@ -525,7 +561,7 @@ class session:
         self.requestBody = _body
         self.requestHeader = _headers
 
-    def corax_earnings(self, rangeStart, rangeEnd, fields, CorporateActionsEarningsType, IncludeNullDates = True, ExcludeDeletedEvents = True, IncludeInstrumentsWithNoEvents = True):
+    def corax_earnings(self, rangeStart, rangeEnd, fields, CorporateActionsEarningsType="ead", IncludeNullDates = True, ExcludeDeletedEvents = True, IncludeInstrumentsWithNoEvents = True):
         """
         The three identifiers:
             * Issue Level Event ID
@@ -551,7 +587,7 @@ class session:
 
         _templates = {"ead": "EarningsAnnouncementDate",
                       "ped":"PeriodEndDate"}
-        
+
         _headers={
             "Prefer":"respond-async",
             "Content-Type":"application/json",
@@ -561,7 +597,7 @@ class session:
         _body = {
             "ExtractionRequest": {
                 "@odata.type": "#ThomsonReuters.Dss.Api.Extractions.ExtractionRequests.CorporateActionsStandardExtractionRequest",
-                "ContentFieldNames": ['RIC','Issue Level Event ID'],
+                "ContentFieldNames": [],
                 "IdentifierList": {
                     "@odata.type": self.odataIns,
                     "InstrumentIdentifiers": [],
@@ -575,7 +611,6 @@ class session:
                     "IncludeNullDates": iftrue(IncludeNullDates),
                     "ExcludeDeletedEvents": iftrue(ExcludeDeletedEvents),
                     "IncludeDividendEvents": "false",
-                    "CorporateActionsDividendsType": "DividendAnnouncementDate",
                     "IncludeCapitalChangeEvents": "false",
                     "IncludeEarningsEvents": "true",
                     "IncludeMergersAndAcquisitionsEvents": "false",
@@ -583,18 +618,13 @@ class session:
                     "IncludePublicEquityOfferingsEvents": "false",
                     "IncludeSharesOutstandingEvents": "false",
                     "IncludeVotingRightsEvents": "false",
-                    "CorporateActionsCapitalChangeType": "CapitalChangeExDate",
-                    "CorporateActionsEarningsType": CorporateActionsEarningsType,
+                    "CorporateActionsEarningsType": _templates[CorporateActionsEarningsType]
                 }
             }
         }
 
         if type(fields) is str:
             fields = [fields]
-
-        if not self.validate_fields("CorporateActions",fields):
-            print('ERROR: Fields selected may not work with the selected template')
-            return
 
         for i in fields:
             _body['ExtractionRequest']['ContentFieldNames'].append(i)
@@ -638,7 +668,7 @@ class session:
         _body = {
             "ExtractionRequest": {
                 "@odata.type": "#ThomsonReuters.Dss.Api.Extractions.ExtractionRequests.CorporateActionsStandardExtractionRequest",
-                "ContentFieldNames": ['RIC','Issue Level Event ID'],
+                "ContentFieldNames": [],
                 "IdentifierList": {
                     "@odata.type": self.odataIns,
                     "InstrumentIdentifiers": [],
@@ -652,26 +682,19 @@ class session:
                     "IncludeNullDates": iftrue(IncludeNullDates),
                     "ExcludeDeletedEvents": iftrue(ExcludeDeletedEvents),
                     "IncludeDividendEvents": "false",
-                    "CorporateActionsDividendsType": "DividendAnnouncementDate",
                     "IncludeCapitalChangeEvents": "false",
                     "IncludeEarningsEvents": "false",
                     "IncludeMergersAndAcquisitionsEvents": "false",
                     "IncludeNominalValueEvents": "true",
                     "IncludePublicEquityOfferingsEvents": "false",
                     "IncludeSharesOutstandingEvents": "false",
-                    "IncludeVotingRightsEvents": "false",
-                    "CorporateActionsCapitalChangeType": "CapitalChangeExDate",
-                    "CorporateActionsEarningsType": "EarningsAnnouncementDate",
+                    "IncludeVotingRightsEvents": "false"
                 }
             }
         }
 
         if type(fields) is str:
             fields = [fields]
-
-        if not self.validate_fields("CorporateActions",fields):
-            print('ERROR: Fields selected may not work with the selected template')
-            return
 
         for i in fields:
             _body['ExtractionRequest']['ContentFieldNames'].append(i)
@@ -682,7 +705,8 @@ class session:
         self.requestBody = _body
         self.requestHeader = _headers
 
-    def corax_shares_outstanding(self, rangeStart, rangeEnd, fields, ShareAmountTypes, IncludeNullDates = True, ExcludeDeletedEvents = True, IncludeInstrumentsWithNoEvents = True):
+
+    def corax_shares_outstanding(self, rangeStart, rangeEnd, fields, ShareAmountTypes='Issued', IncludeNullDates = True, ExcludeDeletedEvents = True, IncludeInstrumentsWithNoEvents = True):
         """
         The three identifiers:
             * Issue Level Event ID
@@ -701,11 +725,6 @@ class session:
         """
         shareAmtTypes = ['Authorised','CloselyHeld','FreeFloat','Issued','Listed','Outstanding','Treasure','Unclassified']
 
-        for i in ShareAmountTypes:
-            if not i in shareAmtTypes:
-                print('Share Amount Type not properly selected')
-                return
-
         def iftrue(obj):
             if obj:
                 return "true"
@@ -721,7 +740,7 @@ class session:
         _body = {
             "ExtractionRequest": {
                 "@odata.type": "#ThomsonReuters.Dss.Api.Extractions.ExtractionRequests.CorporateActionsStandardExtractionRequest",
-                "ContentFieldNames": ['RIC','Issue Level Event ID'],
+                "ContentFieldNames": [],
                 "IdentifierList": {
                     "@odata.type": self.odataIns,
                     "InstrumentIdentifiers": [],
@@ -735,7 +754,6 @@ class session:
                     "IncludeNullDates": iftrue(IncludeNullDates),
                     "ExcludeDeletedEvents": iftrue(ExcludeDeletedEvents),
                     "IncludeDividendEvents": "false",
-                    "CorporateActionsDividendsType": "DividendAnnouncementDate",
                     "IncludeCapitalChangeEvents": "false",
                     "IncludeEarningsEvents": "false",
                     "IncludeMergersAndAcquisitionsEvents": "false",
@@ -743,8 +761,6 @@ class session:
                     "IncludePublicEquityOfferingsEvents": "false",
                     "IncludeSharesOutstandingEvents": "true",
                     "IncludeVotingRightsEvents": "false",
-                    "CorporateActionsCapitalChangeType": "CapitalChangeExDate",
-                    "CorporateActionsEarningsType": "PeriodEndDate",
                     "CorporateActionsSharesType": "SharesAmountDate",
                     "ShareAmountTypes": []
                 }
@@ -758,9 +774,6 @@ class session:
 
         if type(fields) is str:
             fields = [fields]
-
-        if not self.validate_fields("CorporateActions",fields):
-            return
 
         for i in fields:
             _body['ExtractionRequest']['ContentFieldNames'].append(i)
@@ -818,7 +831,7 @@ class session:
         _body = {
             "ExtractionRequest": {
                 "@odata.type": "#ThomsonReuters.Dss.Api.Extractions.ExtractionRequests.CorporateActionsStandardExtractionRequest",
-                "ContentFieldNames": ['RIC','Issue Level Event ID'],
+                "ContentFieldNames": [],
                 "IdentifierList": {
                     "@odata.type": self.odataIns,
                     "InstrumentIdentifiers": [],
@@ -902,7 +915,7 @@ class session:
         _body = {
             "ExtractionRequest": {
                 "@odata.type": "#ThomsonReuters.Dss.Api.Extractions.ExtractionRequests.CorporateActionsStandardExtractionRequest",
-                "ContentFieldNames": ["Deal ID"],
+                "ContentFieldNames": [],
                 "IdentifierList": {
                     "@odata.type": self.odataIns,
                     "InstrumentIdentifiers": [],
@@ -940,7 +953,45 @@ class session:
         self.requestBody = _body
         self.requestHeader = _headers
 
-    def corax_peo(self, rangeStart, rangeEnd, fields, CorporateActionsEquityOfferingsType, IncludeNullDates = True, ExcludeDeletedEvents = True, IncludeInstrumentsWithNoEvents = True):
+    def historical_reference(self, rangeStart, rangeEnd, fields):
+        """
+        On Demand Histo Reference extraction.
+        """
+        _headers={
+            "Prefer":"respond-async",
+            "Content-Type":"application/json",
+            "Authorization":"Token " + self.token
+        }
+
+        _body = {
+            "ExtractionRequest": {
+                "@odata.type": "#ThomsonReuters.Dss.Api.Extractions.ExtractionRequests.HistoricalReferenceExtractionRequest",
+                "ContentFieldNames": [],
+                "IdentifierList": {
+                    "@odata.type": "#ThomsonReuters.Dss.Api.Extractions.ExtractionRequests.InstrumentIdentifierList",
+                    "InstrumentIdentifiers": self.instruments,
+                    "ValidationOptions": {"AllowHistoricalInstruments": "true"},
+                    "UseUserPreferencesForValidationOptions": "false"
+                },
+                "Condition": {
+                    "ReportDateRangeType": "Range",
+                    "QueryStartDate": rangeStart,
+                    "QueryEndDate": rangeEnd
+                }
+            }
+        }
+
+        if type(fields) is str:
+            fields = [fields]
+
+        for i in fields:
+            _body['ExtractionRequest']['ContentFieldNames'].append(i)
+
+        self.requestUrl = 'https://hosted.datascopeapi.reuters.com/RestApi/v1/Extractions/ExtractWithNotes'
+        self.requestBody = _body
+        self.requestHeader = _headers
+
+    def corax_peo(self, rangeStart, rangeEnd, fields, CorporateActionsEquityOfferingsType = "all", IncludeNullDates = True, ExcludeDeletedEvents = True, IncludeInstrumentsWithNoEvents = True):
         """
         rangeStart: character string input. This is the start date to query. Format is "YYYY-MM-DD" or in pythonic format: "%Y-%m-%d"
         rangeEnd: character string input. Range end date, can be a future date. Format is "YYYY-MM-DD" or in pythonic format: "%Y-%m-%d"
@@ -957,9 +1008,6 @@ class session:
         _templates = {"all": "AllPendingDeals",
                       "1st": "FirstTradingDate"}
 
-        if not self.validate_template(CorporateActionsEquityOfferingsType, _templates):
-            return
-
         def iftrue(obj):
             if obj:
                 return "true"
@@ -975,7 +1023,7 @@ class session:
         _body = {
             "ExtractionRequest": {
                 "@odata.type": "#ThomsonReuters.Dss.Api.Extractions.ExtractionRequests.CorporateActionsStandardExtractionRequest",
-                "ContentFieldNames": ['RIC',"Deal ID"],
+                "ContentFieldNames": [],
                 "IdentifierList": {
                     "@odata.type": self.odataIns,
                     "InstrumentIdentifiers": [],
@@ -989,7 +1037,6 @@ class session:
                     "IncludeNullDates": iftrue(IncludeNullDates),
                     "ExcludeDeletedEvents": iftrue(ExcludeDeletedEvents),
                     "IncludeDividendEvents": "false",
-                    "CorporateActionsDividendsType": "DividendAnnouncementDate",
                     "IncludeCapitalChangeEvents": "false",
                     "IncludeEarningsEvents": "false",
                     "IncludeMergersAndAcquisitionsEvents": "true",
@@ -997,18 +1044,13 @@ class session:
                     "IncludePublicEquityOfferingsEvents": "false",
                     "IncludeSharesOutstandingEvents": "false",
                     "IncludeVotingRightsEvents": "false",
-                    "CorporateActionsCapitalChangeType": "CapitalChangeExDate",
-                    "CorporateActionsEarningsType": "EarningsAnnouncementDate",
-                    "CorporateActionsEquityOfferingsType":CorporateActionsEquityOfferingsType
+                    "CorporateActionsEquityOfferingsType":_templates[CorporateActionsEquityOfferingsType]
                 }
             }
         }
 
         if type(fields) is str:
             fields = [fields]
-
-        if not self.validate_fields("CorporateActions",fields):
-            return
 
         for i in fields:
             _body['ExtractionRequest']['ContentFieldNames'].append(i)
@@ -1044,7 +1086,7 @@ class session:
         _body = {
             "ExtractionRequest": {
                 "@odata.type": "#ThomsonReuters.Dss.Api.Extractions.ExtractionRequests.CorporateActionsStandardExtractionRequest",
-                "ContentFieldNames": ['RIC',"Deal ID"],
+                "ContentFieldNames": [],
                 "IdentifierList": {
                     "@odata.type": self.odataIns,
                     "InstrumentIdentifiers": [],
@@ -1058,7 +1100,6 @@ class session:
                     "IncludeNullDates": iftrue(IncludeNullDates),
                     "ExcludeDeletedEvents": iftrue(ExcludeDeletedEvents),
                     "IncludeDividendEvents": "false",
-                    "CorporateActionsDividendsType": "DividendAnnouncementDate",
                     "IncludeCapitalChangeEvents": "false",
                     "IncludeEarningsEvents": "false",
                     "IncludeMergersAndAcquisitionsEvents": "true",
@@ -1066,8 +1107,6 @@ class session:
                     "IncludePublicEquityOfferingsEvents": "false",
                     "IncludeSharesOutstandingEvents": "false",
                     "IncludeVotingRightsEvents": "false",
-                    "CorporateActionsCapitalChangeType": "CapitalChangeExDate",
-                    "CorporateActionsEarningsType": "EarningsAnnouncementDate",
                     "CorporateActionsVotingRightsType": "VotingRightsDate"
                 }
             }
@@ -1075,9 +1114,6 @@ class session:
 
         if type(fields) is str:
             fields = [fields]
-
-        if not self.validate_fields("CorporateActions",fields):
-            return
 
         for i in fields:
             _body['ExtractionRequest']['ContentFieldNames'].append(i)
@@ -1087,6 +1123,52 @@ class session:
         self.requestUrl = 'https://hosted.datascopeapi.reuters.com/RestApi/v1/Extractions/ExtractWithNotes'
         self.requestBody = _body
         self.requestHeader = _headers
+
+    def extract(self):
+        """
+        """
+        try:
+            self.instruments
+        except:
+            print('Error: missing instruments. You need to add instruments with one of the datascope.load_xxx methods')
+            return
+
+        try:
+            self.requestBody
+        except:
+            print('Error: missing report template. You need to add reports with one of the datascope.pricing/corax/reference methods')
+            return
+
+        _resp = requests.post(self.requestUrl, json=self.requestBody, headers=self.requestHeader)
+        self.status_code = _resp.status_code
+        if self.status_code == 202:
+            _url = _resp.headers["location"]
+
+            _requestHeaders={
+                "Prefer":"respond-async",
+                "Content-Type":"application/json",
+                "Authorization":"Token " + self.token
+            }
+
+            while (self.status_code == 202):
+                time.sleep(30)
+                _respJson = requests.get(_url,headers=_requestHeaders)
+                self.status_code = _respJson.status_code
+
+                if self.status_code == 200:
+                    self.content = pd.DataFrame(json.loads(_respJson.content)['Contents'])
+                    self.notes = json.loads(_respJson.content)['Notes'][0]
+                    self.ricmaintenance = json.loads(_respJson.content)['Notes'][1]
+                    print('Completed: added to self.content')
+
+        elif (self.status_code == 200):
+            self.content = pd.DataFrame(json.loads(_resp.content)['Contents'])
+            self.notes = json.loads(_resp.content)['Notes'][0]
+            self.ricmaintenance = json.loads(_resp.content)['Notes'][1]
+            print('Completed: added to self.content')
+
+        else:
+            print('Error, issue with the export file. HTTP Status: ',self.status_code)
 
     def set_validation_options(self, settings):
         """settings= the dictionary with json settings to be set in the "ValidationOptions portion for dss"
@@ -1116,13 +1198,13 @@ class session:
         except:
             print('Error: missing instruments. You need to add instruments with one of the datascope.load_xxx methods')
             return
-        
+
         try:
             self.requestBody
         except:
             print('Error: missing report template. You need to add reports with one of the datascope.pricing/corax/reference methods')
             return
-        
+
         _resp = requests.post(self.requestUrl, json=self.requestBody, headers=self.requestHeader)
         self.status_code = _resp.status_code
         if self.status_code == 202:
@@ -1150,9 +1232,14 @@ class session:
             self.notes = json.loads(_resp.content)['Notes'][0]
             self.ricmaintenance = json.loads(_resp.content)['Notes'][1]
             print('Completed: added to self.content')
-            
+
         else:
             print('Error, issue with the export file. HTTP Status: ',self.status_code)
+
+    def get_bond_sched_types(self):
+        _url = 'https://hosted.datascopeapi.reuters.com/RestApi/v1/Extractions/BondScheduleReportTemplateGetBondScheduleTypes'
+        _header = {'Authorization': 'Token '+ self.token, 'Prefer': 'respond-async'}
+        return pd.DataFrame(json.loads(requests.get(_url, headers= _header).content)['value'])
 
     def write_files(self, filename, notefilename = '',ricmaintfile = ''):
         """
@@ -1176,3 +1263,6 @@ class session:
         else:
             print("It is good practice to save your ric maintenance files with the argument ricmainfile")
 
+    def print_notes(self):
+        for i in self.notes.split('\r\n'):
+            print(i)
